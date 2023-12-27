@@ -1,0 +1,5 @@
+{
+  "rust-analyzer.linkedProjects": ["Cargo.toml", "print-ebpf/Cargo.toml"],
+  "rust-analyzer.cargo.target": "thumbv7em-none-eabihf",
+
+}
