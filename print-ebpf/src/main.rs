@@ -6,7 +6,7 @@ use aya_bpf::{
     macros::{map,xdp},
     programs::XdpContext,
     helpers::bpf_ktime_get_ns,
-    maps::{Array,HashMap},
+    maps::{Array,HashMap, PerCpuHashMap}, bpf_printk,
 };
 use aya_log_ebpf::{info,error};
 use core::{mem::{self, transmute}, u32, hash};
@@ -53,6 +53,10 @@ struct Cms {
 //(row,index) = value both row and index are user definable, the map can have a max of 1024 rows
 static CMS_MAP: HashMap::<Cms,u32> = HashMap::<Cms,u32>::with_max_entries(CMS_ENTRY_LIMIT, 0);
 
+#[map]
+//0,numero pacchetti
+static STAT: PerCpuHashMap::<u32,u32> = PerCpuHashMap::<u32,u32>::with_max_entries(1, 0);
+
 
 fn convert_key_tuple_to_array(key_tuple: (u32, u32, u16, u16, u8)) -> [u8; 13] {
     let mut arr = [0; 13];
@@ -98,7 +102,7 @@ fn ptr_at<T>(ctx: &XdpContext, offset: usize) -> Result<*const T, ()> {
 }
 
 fn try_print(ctx: XdpContext) -> Result<u32,()> {
-    let inizio = unsafe { bpf_ktime_get_ns() };
+    // let inizio = unsafe { bpf_ktime_get_ns() };
     //hash user defined
     let cms_rows = unsafe {core::ptr::read_volatile(&CMS_ROWS)};
     let cms_size = unsafe {core::ptr::read_volatile(&CMS_SIZE)};
@@ -195,8 +199,15 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
     // info!(&ctx, "SRC IP: {:i}, SRC PORT: {}, PROTO: {}, DST IP: {:i}, DST PORT : {}", source_addr, source_port, proto, dest_addr, dest_port);
     // info!(&ctx, "provaaa");
     // info!(&ctx, "provaa2");
-    let fine = unsafe { bpf_ktime_get_ns() };
-    error!(&ctx,"Inizio = {} Fine = {} TEMPO PACCHETTO = {} ns",inizio, fine, fine-inizio);
+    // let fine = unsafe { bpf_ktime_get_ns() };
+    // error!(&ctx,"Inizio = {} Fine = {} TEMPO PACCHETTO = {} ns",inizio, fine, fine-inizio);
+
+    if let Some(val) = unsafe {STAT.get(&0)} {
+        STAT.insert(&0, &(val+1), 0);
+
+    }else {
+        error!(&ctx,"stat non inserito")
+    }
     Ok(xdp_action::XDP_PASS)
 }
 

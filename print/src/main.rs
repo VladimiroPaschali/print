@@ -1,10 +1,17 @@
 use anyhow::Context;
+use aya::maps::{PerCpuHashMap, PerCpuValues};
 use aya::programs::{Xdp, XdpFlags};
+use aya::util::nr_cpus;
 use aya::{include_bytes_aligned, Bpf};
 use aya_log::BpfLogger;
 use clap::Parser;
 use log::{info, warn, debug};
 use tokio::signal;
+use std::time::Duration;
+use std::thread;
+use num_format::ToFormattedString;
+use num_format::format::Locale;
+
 
 #[derive(Debug, Parser)]
 struct Opt {
@@ -54,7 +61,29 @@ async fn main() -> Result<(), anyhow::Error> {
     program.attach(&opt.iface, XdpFlags::default())
         .context("failed to attach the XDP program with default flags - try changing XdpFlags::default() to XdpFlags::SKB_MODE")?;
 
+    let mut stat_map: PerCpuHashMap<_,u32,u32> = PerCpuHashMap::try_from(bpf.map_mut("STAT").unwrap())?;
+    stat_map.insert(0, PerCpuValues::try_from(vec![0;nr_cpus()?])?, 0);
+
     info!("Waiting for Ctrl-C...");
+    let mut oldpkts = 0;
+    let mut maxpps = 0;
+    loop {
+
+        let mut totpkts = 0;
+        let pkts = stat_map.get(&0, 0)?;
+        for cpupkt in pkts.iter(){
+            totpkts+=cpupkt;
+        }
+
+        let pps = totpkts-oldpkts;
+
+        let formatted_counter = pps.to_formatted_string(&Locale::it);
+
+        info!("Pacchetti al secondo = {}",formatted_counter);
+        oldpkts = totpkts;
+        thread::sleep(Duration::from_secs(1));
+
+    }
     signal::ctrl_c().await?;
     info!("Exiting...");
 
