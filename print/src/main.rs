@@ -76,10 +76,15 @@ async fn main() -> Result<(), anyhow::Error> {
         }
 
         let pps = totpkts-oldpkts;
+        if pps>maxpps{
+            maxpps=pps;
+
+        }
 
         let formatted_counter = pps.to_formatted_string(&Locale::it);
+        let formatted_max= maxpps.to_formatted_string(&Locale::it);
 
-        info!("Pacchetti al secondo = {}",formatted_counter);
+        info!("Pacchetti al secondo = {} Max = {}",formatted_counter,formatted_max);
         oldpkts = totpkts;
         thread::sleep(Duration::from_secs(1));
 
