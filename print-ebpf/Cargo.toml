@@ -18,7 +18,8 @@ path = "src/main.rs"
 
 [profile.dev]
 opt-level = 3
-debug = false
+debug = true
+debuginfo=2
 debug-assertions = false
 overflow-checks = false
 lto = true
@@ -31,6 +32,9 @@ rpath = false
 lto = true
 panic = "abort"
 codegen-units = 1
+
+# [target.bpfel-unknown-none]
+# rustflags = ["-C debuginfo=2"]
 
 [workspace]
 members = []

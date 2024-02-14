@@ -36,6 +36,22 @@ async fn main() -> Result<(), anyhow::Error> {
         rlim_max: libc::RLIM_INFINITY,
     };
     let ret = unsafe { libc::setrlimit(libc::RLIMIT_MEMLOCK, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_AS, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_CORE, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_CPU, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_DATA, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_FSIZE, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_LOCKS, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_MSGQUEUE, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_NICE, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_NPROC, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_RSS, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_RTPRIO, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_RTTIME, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_SIGPENDING, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_STACK, &rlim) };
+    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_NLIMITS, &rlim) };
     if ret != 0 {
         debug!("remove limit on locked memory failed, ret is: {}", ret);
     }
