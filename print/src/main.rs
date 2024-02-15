@@ -77,34 +77,34 @@ async fn main() -> Result<(), anyhow::Error> {
     program.attach(&opt.iface, XdpFlags::default())
         .context("failed to attach the XDP program with default flags - try changing XdpFlags::default() to XdpFlags::SKB_MODE")?;
 
-    let mut stat_map: PerCpuHashMap<_,u32,u32> = PerCpuHashMap::try_from(bpf.map_mut("STAT").unwrap())?;
-    stat_map.insert(0, PerCpuValues::try_from(vec![0;nr_cpus()?])?, 0);
+    // let mut stat_map: PerCpuHashMap<_,u32,u32> = PerCpuHashMap::try_from(bpf.map_mut("STAT").unwrap())?;
+    // stat_map.insert(0, PerCpuValues::try_from(vec![0;nr_cpus()?])?, 0);
 
-    info!("Waiting for Ctrl-C...");
-    let mut oldpkts = 0;
-    let mut maxpps = 0;
-    loop {
+    // info!("Waiting for Ctrl-C...");
+    // let mut oldpkts = 0;
+    // let mut maxpps = 0;
+    // loop {
 
-        let mut totpkts = 0;
-        let pkts = stat_map.get(&0, 0)?;
-        for cpupkt in pkts.iter(){
-            totpkts+=cpupkt;
-        }
+    //     let mut totpkts = 0;
+    //     let pkts = stat_map.get(&0, 0)?;
+    //     for cpupkt in pkts.iter(){
+    //         totpkts+=cpupkt;
+    //     }
 
-        let pps = totpkts-oldpkts;
-        if pps>maxpps{
-            maxpps=pps;
+    //     let pps = totpkts-oldpkts;
+    //     if pps>maxpps{
+    //         maxpps=pps;
 
-        }
+    //     }
 
-        let formatted_counter = pps.to_formatted_string(&Locale::it);
-        let formatted_max= maxpps.to_formatted_string(&Locale::it);
+    //     let formatted_counter = pps.to_formatted_string(&Locale::it);
+    //     let formatted_max= maxpps.to_formatted_string(&Locale::it);
 
-        info!("Pacchetti al secondo = {} Max = {}",formatted_counter,formatted_max);
-        oldpkts = totpkts;
-        thread::sleep(Duration::from_secs(1));
+    //     info!("Pacchetti al secondo = {} Max = {}",formatted_counter,formatted_max);
+    //     oldpkts = totpkts;
+    //     thread::sleep(Duration::from_secs(1));
 
-    }
+    // }
     signal::ctrl_c().await?;
     info!("Exiting...");
 
