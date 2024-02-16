@@ -110,11 +110,11 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
     //ctx pointer to the packet
     let ethhdr: *const EthHdr = ptr_at(&ctx, 0)?; 
 
-    //if not ipv4 pass and exit
-    match unsafe { (*ethhdr).ether_type } {
-        EtherType::Ipv4 => {}
-        _ => return Ok(xdp_action::XDP_PASS),
-    }
+    // //if not ipv4 pass and exit
+    // match unsafe { (*ethhdr).ether_type } {
+    //     EtherType::Ipv4 => {}
+    //     _ => return Ok(xdp_action::XDP_PASS),
+    // }
 
     let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, EthHdr::LEN)?;
     let source_addr: u32 = u32::from_be(unsafe { (*ipv4hdr).src_addr });
