@@ -115,8 +115,8 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
     //     EtherType::Ipv4 => {}
     //     _ => return Ok(xdp_action::XDP_PASS),
     // }
-
-    let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, EthHdr::LEN)?;
+    // let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, EthHdr::LEN)?;
+    let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, 0)?;
     let source_addr: u32 = u32::from_be(unsafe { (*ipv4hdr).src_addr });
     let dest_addr: u32 = u32::from_be(unsafe { (*ipv4hdr).dst_addr });
 
