@@ -110,13 +110,13 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
     //ctx pointer to the packet
     let ethhdr: *const EthHdr = ptr_at(&ctx, 0)?; 
 
-    // //if not ipv4 pass and exit
-    // match unsafe { (*ethhdr).ether_type } {
-    //     EtherType::Ipv4 => {}
-    //     _ => return Ok(xdp_action::XDP_PASS),
-    // }
-    // let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, EthHdr::LEN)?;
-    let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, 0)?;
+    //if not ipv4 pass and exit
+    match unsafe { (*ethhdr).ether_type } {
+        EtherType::Ipv4 => {}
+        _ => return Ok(xdp_action::XDP_PASS),
+    }
+    let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, EthHdr::LEN)?;
+    // let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, 0)?;
     let source_addr: u32 = u32::from_be(unsafe { (*ipv4hdr).src_addr });
     let dest_addr: u32 = u32::from_be(unsafe { (*ipv4hdr).dst_addr });
 
@@ -169,12 +169,13 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
         // index = hash%cms_size;
         index = hash%CMS_SIZE;
         //array-one-entry
-        if let Some(arr) = CMS_ARRAY.get_ptr_mut(0) {
-            unsafe {(*arr).cms[i as usize][index as usize] += 1}
-            info!(&ctx, "Row = {} Hash = {} Index = {} Value = {} ", i, hash, index, unsafe{(*arr).cms[i as usize][index as usize]} )
-        }else {
-            info!(&ctx,"Else cms_array");
-        }
+        // if let Some(arr) = CMS_ARRAY.get_ptr_mut(0) {
+        //     unsafe {(*arr).cms[i as usize][index as usize] += 1}
+        //     info!(&ctx, "Row = {} Hash = {} Index = {} Value = {} ", i, hash, index, unsafe{(*arr).cms[i as usize][index as usize]} )
+        // }else {
+        //     info!(&ctx,"Else cms_array");
+        // }
+        arr = CMS_ARRAY.get_ptr_mut(0);
         //array-of-rows
         // if let Some(arr) = CMS_MAP.get_ptr_mut(i) {
         //     unsafe {(*arr).row[index as usize] += 1}
@@ -196,7 +197,7 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
 
     }
 
-    // info!(&ctx, "SRC IP: {:i}, SRC PORT: {}, PROTO: {}, DST IP: {:i}, DST PORT : {}", source_addr, source_port, proto, dest_addr, dest_port);
+    info!(&ctx, "SRC IP: {:i}, SRC PORT: {}, PROTO: {}, DST IP: {:i}, DST PORT : {}", source_addr, source_port, proto, dest_addr, dest_port);
     // info!(&ctx, "provaaa");
     // info!(&ctx, "provaa2");
     // let fine = unsafe { bpf_ktime_get_ns() };
