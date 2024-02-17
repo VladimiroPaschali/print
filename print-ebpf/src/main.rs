@@ -169,13 +169,12 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
         // index = hash%cms_size;
         index = hash%CMS_SIZE;
         //array-one-entry
-        // if let Some(arr) = CMS_ARRAY.get_ptr_mut(0) {
-        //     unsafe {(*arr).cms[i as usize][index as usize] += 1}
-        //     info!(&ctx, "Row = {} Hash = {} Index = {} Value = {} ", i, hash, index, unsafe{(*arr).cms[i as usize][index as usize]} )
-        // }else {
-        //     info!(&ctx,"Else cms_array");
-        // }
-        arr = CMS_ARRAY.get_ptr_mut(0);
+        if let Some(arr) = CMS_ARRAY.get_ptr_mut(0) {
+            unsafe {(*arr).cms[i as usize][index as usize] += 1}
+            info!(&ctx, "Row = {} Hash = {} Index = {} Value = {} ", i, hash, index, unsafe{(*arr).cms[i as usize][index as usize]} )
+        }else {
+            info!(&ctx,"Else cms_array");
+        }
         //array-of-rows
         // if let Some(arr) = CMS_MAP.get_ptr_mut(i) {
         //     unsafe {(*arr).row[index as usize] += 1}
