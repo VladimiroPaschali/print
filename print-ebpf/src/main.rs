@@ -21,8 +21,8 @@ use network_types::{
 use xxhash_rust::const_xxh32::xxh32 as const_xxh32;
 use xxhash_rust::xxh32::xxh32;
 
-// const CMS_SIZE:u32 = 131072;
-// const CMS_ROWS:u32 = 5;
+const CMS_SIZE:u32 = 131072;
+const CMS_ROWS:u32 = 5;
 // // array-one-entry
 // #[derive(Clone, Copy)]
 // pub struct Cms {
@@ -40,11 +40,11 @@ use xxhash_rust::xxh32::xxh32;
 // //hash
 const CMS_ENTRY_LIMIT: u32 =  131072;
 // rows and size updated by userside
-#[no_mangle]
-static CMS_ROWS: u32 = 1;
-#[no_mangle]
-static CMS_SIZE: u32 = 1;
-#[derive(Clone, Copy)]
+// #[no_mangle]
+// static CMS_ROWS: u32 = 1;
+// #[no_mangle]
+// static CMS_SIZE: u32 = 1;
+// #[derive(Clone, Copy)]
 struct Cms {
     row: u32,
     index: u32
@@ -153,12 +153,28 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
 
     let key_ip: (u32, u32, u16, u16, u8) = (source_addr,dest_addr,source_port,dest_port,proto as u8);
     let converted_key = convert_key_tuple_to_array(key_ip);
+//     info!(&ctx,"{} {} {} {} {} {} {} {} {} {} {} {} {} ",
+    
+//     converted_key[0],
+//     converted_key[1],
+//     converted_key[2],
+//     converted_key[3],
+//     converted_key[4],
+//     converted_key[5],
+//     converted_key[6],
+//     converted_key[7],
+//     converted_key[8],
+//     converted_key[9],
+//     converted_key[10],
+//     converted_key[11],
+//     converted_key[12]
+// );
 
     let mut hash :u32 = 0;
     let mut index : u32 = 0;
     //hash user defined
-    for i in 0..cms_rows{
-    // for i in 0..CMS_ROWS{
+    // for i in 0..cms_rows{
+    for i in 0..CMS_ROWS{
         if i == 0{
             hash = xxh32(&converted_key,42);
         }else {
@@ -166,8 +182,10 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
             hash = xxh32(&hash.to_ne_bytes(), 42);
         }
         //hash user defined
-        index = hash%cms_size;
-        // index = hash%CMS_SIZE;
+        // index = hash%cms_size;
+        index = hash%CMS_SIZE;
+        // info!(&ctx,"index {} hash{} cmssyze{} ",index, hash,cms_size);
+
         // array-one-entry
         // if let Some(arr) = CMS_ARRAY.get_ptr_mut(0) {
         //     unsafe {(*arr).cms[i as usize][index as usize] += 1}
@@ -188,7 +206,10 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
             index:index
         };
         if let Some(val)= unsafe { CMS_MAP.get(&key) }{
-            CMS_MAP.insert(&key, &(val+1), 0);
+            CMS_MAP.insert(&key, &(*val+1), 0);
+            info!(&ctx, "Row = {} Hash = {} Index = {} Value = {}", i, hash, index, *val);
+            
+
         }else {
             CMS_MAP.insert(&key, &1, 0);
         }
@@ -196,7 +217,7 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
 
     }
 
-    info!(&ctx, "SRC IP: {:i}, SRC PORT: {}, PROTO: {}, DST IP: {:i}, DST PORT : {}", source_addr, source_port, proto, dest_addr, dest_port);
+    // info!(&ctx, "SRC IP: {:i}, SRC PORT: {}, PROTO: {}, DST IP: {:i}, DST PORT : {}", source_addr, source_port, proto, dest_addr, dest_port);
     // info!(&ctx, "provaaa");
     // info!(&ctx, "provaa2");
     // let fine = unsafe { bpf_ktime_get_ns() };
