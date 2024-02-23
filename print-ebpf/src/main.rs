@@ -111,12 +111,12 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
     let ethhdr: *const EthHdr = ptr_at(&ctx, 0)?; 
 
     //if not ipv4 pass and exit
-    // match unsafe { (*ethhdr).ether_type } {
-    //     EtherType::Ipv4 => {}
-    //     _ => return Ok(xdp_action::XDP_PASS),
-    // }
-    // let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, EthHdr::LEN)?;
-    let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, 0)?;
+    match unsafe { (*ethhdr).ether_type } {
+        EtherType::Ipv4 => {}
+        _ => return Ok(xdp_action::XDP_PASS),
+    }
+    let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, EthHdr::LEN)?;
+    // let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, 0)?;
     let source_addr: u32 = u32::from_be(unsafe { (*ipv4hdr).src_addr });
     let dest_addr: u32 = u32::from_be(unsafe { (*ipv4hdr).dst_addr });
 
@@ -126,12 +126,12 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
     let source_port = match unsafe { (*ipv4hdr).proto } {
         IpProto::Tcp => {
             let tcphdr: *const TcpHdr =
-                ptr_at(&ctx, 0 + Ipv4Hdr::LEN)?;
+                ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
             u16::from_be(unsafe { (*tcphdr).source })
         }
         IpProto::Udp => {
             let udphdr: *const UdpHdr =
-                ptr_at(&ctx, 0 + Ipv4Hdr::LEN)?;
+                ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
             u16::from_be(unsafe { (*udphdr).source })
         }
         _ => return Err(()),
@@ -140,12 +140,12 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
     let dest_port = match unsafe { (*ipv4hdr).proto } {
         IpProto::Tcp => {
             let tcphdr: *const TcpHdr =
-                ptr_at(&ctx, 0 + Ipv4Hdr::LEN)?;
+                ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
             u16::from_be(unsafe { (*tcphdr).dest })
         }
         IpProto::Udp => {
             let udphdr: *const UdpHdr =
-                ptr_at(&ctx, 0 + Ipv4Hdr::LEN)?;
+                ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
             u16::from_be(unsafe { (*udphdr).dest })
         }
         _ => return Err(()),
