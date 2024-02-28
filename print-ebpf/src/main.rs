@@ -85,7 +85,7 @@ fn convert_key_tuple_to_array(key_tuple: (u32, u32, u16, u16, u8)) -> [u8; 13] {
 pub fn print(ctx: XdpContext) -> u32 {
     match try_print(ctx) {
         Ok(ret) => ret,
-        Err(_) => xdp_action::XDP_ABORTED,
+        Err(_) => xdp_action::XDP_PASS,
     }
 }
 #[inline(always)] // 
