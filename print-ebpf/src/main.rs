@@ -22,7 +22,7 @@ use xxhash_rust::const_xxh32::xxh32 as const_xxh32;
 use xxhash_rust::xxh32::xxh32;
 
 const CMS_SIZE:u32 = 131072;
-const CMS_ROWS:u32 = 2;
+const CMS_ROWS:u32 = 5;
 // // array-one-entry
 #[derive(Clone, Copy)]
 pub struct Cms {
