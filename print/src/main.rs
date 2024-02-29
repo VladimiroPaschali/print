@@ -1,8 +1,8 @@
 use anyhow::Context;
-use aya::maps::{PerCpuHashMap, PerCpuValues};
+use aya::maps::{PerCpuHashMap, PerCpuValues,Array};
 use aya::programs::{Xdp, XdpFlags};
 use aya::util::nr_cpus;
-use aya::{include_bytes_aligned, Bpf};
+use aya::{include_bytes_aligned, Bpf,Pod};
 use aya_log::BpfLogger;
 use clap::Parser;
 use log::{info, warn, debug};
@@ -22,6 +22,16 @@ struct Opt {
     #[clap(long, default_value = "131072")]
     cms_size: u32,
 }
+// const CMS_SIZE:u32 = 131072;
+const CMS_SIZE:u32 = 131072;
+
+const CMS_ROWS:u32 = 2;
+#[derive(Clone, Copy)]
+pub struct Cms {
+    cms: [[u16; CMS_SIZE as usize]; CMS_ROWS as usize], 
+}
+unsafe impl Pod for Cms{}
+
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -36,22 +46,22 @@ async fn main() -> Result<(), anyhow::Error> {
         rlim_max: libc::RLIM_INFINITY,
     };
     let ret = unsafe { libc::setrlimit(libc::RLIMIT_MEMLOCK, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_AS, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_CORE, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_CPU, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_DATA, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_FSIZE, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_LOCKS, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_MSGQUEUE, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_NICE, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_NPROC, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_RSS, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_RTPRIO, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_RTTIME, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_SIGPENDING, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_STACK, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_NLIMITS, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_AS, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_CORE, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_CPU, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_DATA, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_FSIZE, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_LOCKS, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_MSGQUEUE, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_NICE, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_NPROC, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_RSS, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_RTPRIO, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_RTTIME, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_SIGPENDING, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_STACK, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_NLIMITS, &rlim) };
     if ret != 0 {
         debug!("remove limit on locked memory failed, ret is: {}", ret);
     }
@@ -106,6 +116,27 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // }
     signal::ctrl_c().await?;
+    //cms sparsity
+    //mappa kernel cms [CMS_ROWS][CMS_SIZE]
+    let cms_array: Array<_,Cms> = Array::try_from(bpf.map_mut("CMS_ARRAY").unwrap())?;
+    //allcms = collection of cmss from each core
+    let allcms = cms_array.get(&0, 0)?.cms;//index 0 flag 0
+
+    for (i,row) in allcms.iter().enumerate() {
+        let mut count =0;
+        for val in row{
+            if *val >0{
+                count+=1;
+            }
+        }
+
+        println!("count row {} = {} %", i, (count as f64/CMS_SIZE as f64)*100.0);
+
+    }
+
+
+    
+
     info!("Exiting...");
 
     Ok(())

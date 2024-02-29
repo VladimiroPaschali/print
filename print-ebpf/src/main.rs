@@ -22,14 +22,14 @@ use xxhash_rust::const_xxh32::xxh32 as const_xxh32;
 use xxhash_rust::xxh32::xxh32;
 
 const CMS_SIZE:u32 = 131072;
-const CMS_ROWS:u32 = 5;
+const CMS_ROWS:u32 = 2;
 // // array-one-entry
-// #[derive(Clone, Copy)]
-// pub struct Cms {
-//     cms: [[u32; CMS_SIZE as usize]; CMS_ROWS as usize], 
-// }
-// #[map]
-// static CMS_ARRAY: Array::<Cms> = Array::<Cms>::with_max_entries(1, 0);
+#[derive(Clone, Copy)]
+pub struct Cms {
+    cms: [[u16; CMS_SIZE as usize]; CMS_ROWS as usize], 
+}
+#[map]
+static CMS_ARRAY: Array::<Cms> = Array::<Cms>::with_max_entries(1, 0);
 // array-of-rows
 // #[derive(Clone, Copy)]
 // struct CmsRow {
@@ -45,18 +45,76 @@ const CMS_ENTRY_LIMIT: u32 =  131072;
 // #[no_mangle]
 // static CMS_SIZE: u32 = 1;
 // #[derive(Clone, Copy)]
-struct Cms {
-    row: u32,
-    index: u32
-}
-#[map]
-//(row,index) = value both row and index are user definable, the map can have a max of 1024 rows
-static CMS_MAP: HashMap::<Cms,u32> = HashMap::<Cms,u32>::with_max_entries(CMS_ENTRY_LIMIT, 0);
+// struct Cms {
+//     row: u32,
+//     index: u32
+// }
+// #[map]
+// //(row,index) = value both row and index are user definable, the map can have a max of 1024 rows
+// static CMS_MAP: HashMap::<Cms,u32> = HashMap::<Cms,u32>::with_max_entries(CMS_ENTRY_LIMIT, 0);
 
 // #[map]
 // //0,numero pacchetti
 // static STAT: PerCpuHashMap::<u32,u32> = PerCpuHashMap::<u32,u32>::with_max_entries(1, 0);
+fn fasthash(key: &[u8]) -> u32 {
+    let mut hash = 2166136261;
+    for byte in key {
+        hash ^= *byte as u32;
+        hash = hash.wrapping_mul(16777619);
+    }
+    hash
+}
 
+fn murmurhash3_x86_32(key: &[u8], seed: u32) -> u32 {
+    const C1: u32 = 0xcc9e2d51;
+    const C2: u32 = 0x1b873593;
+    const R1: u32 = 15;
+    const R2: u32 = 13;
+    const M: u32 = 5;
+    const N: u32 = 0xe6546b64;
+
+    let mut hash = seed;
+    let len = key.len();
+    let nblocks = len / 4;
+
+    for i in 0..nblocks {
+        let mut k: u32 = ((key[i*4] as u32)
+            | (key[i*4+1] as u32) << 8
+            | (key[i*4+2] as u32) << 16
+            | (key[i*4+3] as u32) << 24);
+
+        k = k.wrapping_mul(C1);
+        k = k.rotate_left(R1);
+        k = k.wrapping_mul(C2);
+
+        hash ^= k;
+        hash = hash.rotate_left(R2);
+        hash = hash.wrapping_mul(M).wrapping_add(N);
+    }
+
+    let tail = &key[nblocks*4..];
+
+    let mut k1: u32 = 0;
+
+    if tail.len() >= 3 { k1 ^= (tail[2] as u32) << 16; }
+    if tail.len() >= 2 { k1 ^= (tail[1] as u32) << 8; }
+    if tail.len() >= 1 {
+        k1 ^= tail[0] as u32;
+        k1 = k1.wrapping_mul(C1);
+        k1 = k1.rotate_left(R1);
+        k1 = k1.wrapping_mul(C2);
+        hash ^= k1;
+    }
+
+    hash ^= len as u32;
+    hash ^= hash >> 16;
+    hash = hash.wrapping_mul(0x85ebca6b);
+    hash ^= hash >> 13;
+    hash = hash.wrapping_mul(0xc2b2ae35);
+    hash ^= hash >> 16;
+    
+    hash
+}
 
 fn convert_key_tuple_to_array(key_tuple: (u32, u32, u16, u16, u8)) -> [u8; 13] {
     let mut arr = [0; 13];
@@ -177,9 +235,14 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
     for i in 0..CMS_ROWS{
         if i == 0{
             hash = xxh32(&converted_key,42);
+            // hash = fasthash(&converted_key);
+            // hash = murmurhash3_x86_32(&converted_key, 33);
         }else {
             //to_ne_bytes converts from u32 to [u8]
             hash = xxh32(&hash.to_ne_bytes(), 42);
+            // hash = fasthash(&hash.to_ne_bytes());
+            // hash = murmurhash3_x86_32(&hash.to_ne_bytes(), 33);
+
         }
         //hash user defined
         // index = hash%cms_size;
@@ -187,12 +250,12 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
         // info!(&ctx,"index {} hash{} cmssyze{} ",index, hash,cms_size);
 
         // array-one-entry
-        // if let Some(arr) = CMS_ARRAY.get_ptr_mut(0) {
-        //     unsafe {(*arr).cms[i as usize][index as usize] += 1}
-        //     info!(&ctx, "Row = {} Hash = {} Index = {} Value = {} ", i, hash, index, unsafe{(*arr).cms[i as usize][index as usize]} )
-        // }else {
-        //     info!(&ctx,"Else cms_array");
-        // }
+        if let Some(arr) = CMS_ARRAY.get_ptr_mut(0) {
+            unsafe {(*arr).cms[i as usize][index as usize] += 1}
+            info!(&ctx, "Row = {} Hash = {} Index = {} Value = {} ", i, hash, index, unsafe{(*arr).cms[i as usize][index as usize]} )
+        }else {
+            info!(&ctx,"Else cms_array");
+        }
         //array-of-rows
         // if let Some(arr) = CMS_MAP.get_ptr_mut(i) {
         //     unsafe {(*arr).row[index as usize] += 1}
@@ -201,18 +264,18 @@ fn try_print(ctx: XdpContext) -> Result<u32,()> {
         //     info!(&ctx,"Else CMS_MAP");
         // }
         //hash
-        let key  = Cms{
-            row:i,
-            index:index
-        };
-        if let Some(val)= unsafe { CMS_MAP.get(&key) }{
-            CMS_MAP.insert(&key, &(*val+1), 0);
-            info!(&ctx, "Row = {} Hash = {} Index = {} Value = {}", i, hash, index, *val);
+        // let key  = Cms{
+        //     row:i,
+        //     index:index
+        // };
+        // if let Some(val)= unsafe { CMS_MAP.get(&key) }{
+        //     CMS_MAP.insert(&key, &(*val+1), 0);
+        //     info!(&ctx, "Row = {} Hash = {} Index = {} Value = {}", i, hash, index, *val);
             
 
-        }else {
-            CMS_MAP.insert(&key, &1, 0);
-        }
+        // }else {
+        //     CMS_MAP.insert(&key, &1, 0);
+        // }
 
 
     }
