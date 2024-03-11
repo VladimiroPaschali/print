@@ -45,7 +45,7 @@ async fn main() -> Result<(), anyhow::Error> {
         rlim_cur: libc::RLIM_INFINITY,
         rlim_max: libc::RLIM_INFINITY,
     };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_MEMLOCK, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_MEMLOCK, &rlim) };
     // let ret = unsafe { libc::setrlimit(libc::RLIMIT_AS, &rlim) };
     // let ret = unsafe { libc::setrlimit(libc::RLIMIT_CORE, &rlim) };
     // let ret = unsafe { libc::setrlimit(libc::RLIMIT_CPU, &rlim) };
