@@ -2,8 +2,8 @@ use anyhow::Context;
 use aya::maps::{PerCpuHashMap, PerCpuValues,Array};
 use aya::programs::{Xdp, XdpFlags};
 use aya::util::nr_cpus;
-use aya::{include_bytes_aligned, Bpf,Pod};
-use aya_log::BpfLogger;
+use aya::{include_bytes_aligned, Ebpf,Pod};
+use aya_log::EbpfLogger;
 use clap::Parser;
 use log::{info, warn, debug};
 use tokio::signal;
@@ -60,7 +60,7 @@ async fn main() -> Result<(), anyhow::Error> {
     // let ret = unsafe { libc::setrlimit(libc::RLIMIT_RTPRIO, &rlim) };
     // let ret = unsafe { libc::setrlimit(libc::RLIMIT_RTTIME, &rlim) };
     // let ret = unsafe { libc::setrlimit(libc::RLIMIT_SIGPENDING, &rlim) };
-    // let ret = unsafe { libc::setrlimit(libc::RLIMIT_STACK, &rlim) };
+    let ret = unsafe { libc::setrlimit(libc::RLIMIT_STACK, &rlim) };
     // let ret = unsafe { libc::setrlimit(libc::RLIMIT_NLIMITS, &rlim) };
     if ret != 0 {
         debug!("remove limit on locked memory failed, ret is: {}", ret);
@@ -71,14 +71,14 @@ async fn main() -> Result<(), anyhow::Error> {
     // like to specify the eBPF program at runtime rather than at compile-time, you can
     // reach for `Bpf::load_file` instead.
     #[cfg(debug_assertions)]
-    let mut bpf = Bpf::load(include_bytes_aligned!(
+    let mut bpf = Ebpf::load(include_bytes_aligned!(
         "../../target/bpfel-unknown-none/debug/print"
     ))?;
     #[cfg(not(debug_assertions))]
-    let mut bpf = Bpf::load(include_bytes_aligned!(
+    let mut bpf = Ebpf::load(include_bytes_aligned!(
         "../../target/bpfel-unknown-none/release/print"
     ))?;
-    if let Err(e) = BpfLogger::init(&mut bpf) {
+    if let Err(e) = EbpfLogger::init(&mut bpf) {
         // This can happen if you remove all log statements from your eBPF program.
         warn!("failed to initialize eBPF logger: {}", e);
     }
