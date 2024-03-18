@@ -74,7 +74,7 @@ async fn main() -> Result<(), anyhow::Error> {
     }
     let program: &mut Xdp = bpf.program_mut("print").unwrap().try_into()?;
     program.load()?;
-    program.attach(&opt.iface, XdpFlags::default())
+    program.attach(&opt.iface, XdpFlags::SKB_MODE)
         .context("failed to attach the XDP program with default flags - try changing XdpFlags::default() to XdpFlags::SKB_MODE")?;
 
     // let mut stat_map: PerCpuHashMap<_,u32,u32> = PerCpuHashMap::try_from(bpf.map_mut("STAT").unwrap())?;

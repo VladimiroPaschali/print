@@ -49,9 +49,9 @@ struct Cms {
     row: u32,
     index: u32
 }
-#[map]
+//#[map]
 //(row,index) = value both row and index are user definable, the map can have a max of 1024 rows
-static CMS_MAP: HashMap::<Cms,u32> = HashMap::<Cms,u32>::with_max_entries(CMS_ENTRY_LIMIT, 0);
+//static CMS_MAP: HashMap::<Cms,u32> = HashMap::<Cms,u32>::with_max_entries(CMS_ENTRY_LIMIT, 0);
 
 // #[map]
 // //0,numero pacchetti
@@ -81,6 +81,12 @@ fn convert_key_tuple_to_array(key_tuple: (u32, u32, u16, u16, u8)) -> [u8; 13] {
     return arr;
  } 
 
+extern "C" {
+#[no_mangle]
+#[link_section = ".ksyms"]
+pub fn bpf_kep_read_counter(counter: aya_bpf::cty::c_int) -> aya_bpf::cty::c_long;
+}
+
 #[xdp]
 pub fn print(ctx: XdpContext) -> u32 {
     match try_print(ctx) {
@@ -100,137 +106,141 @@ fn ptr_at<T>(ctx: &XdpContext, offset: usize) -> Result<*const T, ()> {
 
     Ok((start + offset) as *const T)
 }
-
-fn try_print(ctx: XdpContext) -> Result<u32,()> {
-    // let inizio = unsafe { bpf_ktime_get_ns() };
-    //hash user defined
-    let cms_rows = unsafe {core::ptr::read_volatile(&CMS_ROWS)};
-    let cms_size = unsafe {core::ptr::read_volatile(&CMS_SIZE)};
-    //pointer to the beginning of the ethhdr
-    //ctx pointer to the packet
-    let ethhdr: *const EthHdr = ptr_at(&ctx, 0)?; 
-
-    //if not ipv4 pass and exit
-    // match unsafe { (*ethhdr).ether_type } {
-    //     EtherType::Ipv4 => {}
-    //     _ => return Ok(xdp_action::XDP_PASS),
-    // }
-    // let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, EthHdr::LEN)?;
-    let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, 0)?;
-    let source_addr: u32 = u32::from_be(unsafe { (*ipv4hdr).src_addr });
-    let dest_addr: u32 = u32::from_be(unsafe { (*ipv4hdr).dst_addr });
-
-    let proto : u32 =unsafe {(*ipv4hdr).proto as u32};
-
-
-    let source_port = match unsafe { (*ipv4hdr).proto } {
-        IpProto::Tcp => {
-            let tcphdr: *const TcpHdr =
-                ptr_at(&ctx, 0 + Ipv4Hdr::LEN)?;
-            u16::from_be(unsafe { (*tcphdr).source })
-        }
-        IpProto::Udp => {
-            let udphdr: *const UdpHdr =
-                ptr_at(&ctx, 0 + Ipv4Hdr::LEN)?;
-            u16::from_be(unsafe { (*udphdr).source })
-        }
-        _ => return Err(()),
-    };
-
-    let dest_port = match unsafe { (*ipv4hdr).proto } {
-        IpProto::Tcp => {
-            let tcphdr: *const TcpHdr =
-                ptr_at(&ctx, 0 + Ipv4Hdr::LEN)?;
-            u16::from_be(unsafe { (*tcphdr).dest })
-        }
-        IpProto::Udp => {
-            let udphdr: *const UdpHdr =
-                ptr_at(&ctx, 0 + Ipv4Hdr::LEN)?;
-            u16::from_be(unsafe { (*udphdr).dest })
-        }
-        _ => return Err(()),
-    };
-
-    let key_ip: (u32, u32, u16, u16, u8) = (source_addr,dest_addr,source_port,dest_port,proto as u8);
-    let converted_key = convert_key_tuple_to_array(key_ip);
-//     info!(&ctx,"{} {} {} {} {} {} {} {} {} {} {} {} {} ",
-    
-//     converted_key[0],
-//     converted_key[1],
-//     converted_key[2],
-//     converted_key[3],
-//     converted_key[4],
-//     converted_key[5],
-//     converted_key[6],
-//     converted_key[7],
-//     converted_key[8],
-//     converted_key[9],
-//     converted_key[10],
-//     converted_key[11],
-//     converted_key[12]
-// );
-
-    let mut hash :u32 = 0;
-    let mut index : u32 = 0;
-    //hash user defined
-    // for i in 0..cms_rows{
-    for i in 0..CMS_ROWS{
-        if i == 0{
-            hash = xxh32(&converted_key,42);
-        }else {
-            //to_ne_bytes converts from u32 to [u8]
-            hash = xxh32(&hash.to_ne_bytes(), 42);
-        }
-        //hash user defined
-        // index = hash%cms_size;
-        index = hash%CMS_SIZE;
-        // info!(&ctx,"index {} hash{} cmssyze{} ",index, hash,cms_size);
-
-        // array-one-entry
-        // if let Some(arr) = CMS_ARRAY.get_ptr_mut(0) {
-        //     unsafe {(*arr).cms[i as usize][index as usize] += 1}
-        //     info!(&ctx, "Row = {} Hash = {} Index = {} Value = {} ", i, hash, index, unsafe{(*arr).cms[i as usize][index as usize]} )
-        // }else {
-        //     info!(&ctx,"Else cms_array");
-        // }
-        //array-of-rows
-        // if let Some(arr) = CMS_MAP.get_ptr_mut(i) {
-        //     unsafe {(*arr).row[index as usize] += 1}
-        //     info!(&ctx, "Row = {} Hash = {} Index = {} Value = {} ", i, hash, index, unsafe{(*arr).row[index as usize]} )
-        // }else {
-        //     info!(&ctx,"Else CMS_MAP");
-        // }
-        //hash
-        let key  = Cms{
-            row:i,
-            index:index
-        };
-        if let Some(val)= unsafe { CMS_MAP.get(&key) }{
-            CMS_MAP.insert(&key, &(*val+1), 0);
-            info!(&ctx, "Row = {} Hash = {} Index = {} Value = {}", i, hash, index, *val);
-            
-
-        }else {
-            CMS_MAP.insert(&key, &1, 0);
-        }
-
-
-    }
-
-    // info!(&ctx, "SRC IP: {:i}, SRC PORT: {}, PROTO: {}, DST IP: {:i}, DST PORT : {}", source_addr, source_port, proto, dest_addr, dest_port);
-    // info!(&ctx, "provaaa");
-    // info!(&ctx, "provaa2");
-    // let fine = unsafe { bpf_ktime_get_ns() };
-    // error!(&ctx,"Inizio = {} Fine = {} TEMPO PACCHETTO = {} ns",inizio, fine, fine-inizio);
-
-    // if let Some(val) = unsafe {STAT.get(&0)} {
-    //     STAT.insert(&0, &(val+1), 0);
-
-    // }else {
-    //     error!(&ctx,"stat non inserito")
-    // }
-    Ok(xdp_action::XDP_PASS)
+fn try_print (ctx: XdpContext) -> Result<u32,()> {
+    unsafe { bpf_kep_read_counter(0); };
+    return Ok(xdp_action::XDP_PASS);
 }
+
+//fn try_print(ctx: XdpContext) -> Result<u32,()> {
+//    unsafe { bpf_kep_read_counter(0); };
+//    //hash user defined
+//    let cms_rows = unsafe {core::ptr::read_volatile(&CMS_ROWS)};
+//    let cms_size = unsafe {core::ptr::read_volatile(&CMS_SIZE)};
+//    //pointer to the beginning of the ethhdr
+//    //ctx pointer to the packet
+//    let ethhdr: *const EthHdr = ptr_at(&ctx, 0)?; 
+//
+//    //if not ipv4 pass and exit
+//    // match unsafe { (*ethhdr).ether_type } {
+//    //     EtherType::Ipv4 => {}
+//    //     _ => return Ok(xdp_action::XDP_PASS),
+//    // }
+//    // let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, EthHdr::LEN)?;
+//    let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, 0)?;
+//    let source_addr: u32 = u32::from_be(unsafe { (*ipv4hdr).src_addr });
+//    let dest_addr: u32 = u32::from_be(unsafe { (*ipv4hdr).dst_addr });
+//
+//    let proto : u32 =unsafe {(*ipv4hdr).proto as u32};
+//
+//
+//    let source_port = match unsafe { (*ipv4hdr).proto } {
+//        IpProto::Tcp => {
+//            let tcphdr: *const TcpHdr =
+//                ptr_at(&ctx, 0 + Ipv4Hdr::LEN)?;
+//            u16::from_be(unsafe { (*tcphdr).source })
+//        }
+//        IpProto::Udp => {
+//            let udphdr: *const UdpHdr =
+//                ptr_at(&ctx, 0 + Ipv4Hdr::LEN)?;
+//            u16::from_be(unsafe { (*udphdr).source })
+//        }
+//        _ => return Err(()),
+//    };
+//
+//    let dest_port = match unsafe { (*ipv4hdr).proto } {
+//        IpProto::Tcp => {
+//            let tcphdr: *const TcpHdr =
+//                ptr_at(&ctx, 0 + Ipv4Hdr::LEN)?;
+//            u16::from_be(unsafe { (*tcphdr).dest })
+//        }
+//        IpProto::Udp => {
+//            let udphdr: *const UdpHdr =
+//                ptr_at(&ctx, 0 + Ipv4Hdr::LEN)?;
+//            u16::from_be(unsafe { (*udphdr).dest })
+//        }
+//        _ => return Err(()),
+//    };
+//
+//    let key_ip: (u32, u32, u16, u16, u8) = (source_addr,dest_addr,source_port,dest_port,proto as u8);
+//    let converted_key = convert_key_tuple_to_array(key_ip);
+////     info!(&ctx,"{} {} {} {} {} {} {} {} {} {} {} {} {} ",
+//    
+////     converted_key[0],
+////     converted_key[1],
+////     converted_key[2],
+////     converted_key[3],
+////     converted_key[4],
+////     converted_key[5],
+////     converted_key[6],
+////     converted_key[7],
+////     converted_key[8],
+////     converted_key[9],
+////     converted_key[10],
+////     converted_key[11],
+////     converted_key[12]
+//// );
+//
+//    let mut hash :u32 = 0;
+//    let mut index : u32 = 0;
+//    //hash user defined
+//    // for i in 0..cms_rows{
+//    for i in 0..CMS_ROWS{
+//        if i == 0{
+//            hash = xxh32(&converted_key,42);
+//        }else {
+//            //to_ne_bytes converts from u32 to [u8]
+//            hash = xxh32(&hash.to_ne_bytes(), 42);
+//        }
+//        //hash user defined
+//        // index = hash%cms_size;
+//        index = hash%CMS_SIZE;
+//        // info!(&ctx,"index {} hash{} cmssyze{} ",index, hash,cms_size);
+//
+//        // array-one-entry
+//        // if let Some(arr) = CMS_ARRAY.get_ptr_mut(0) {
+//        //     unsafe {(*arr).cms[i as usize][index as usize] += 1}
+//        //     info!(&ctx, "Row = {} Hash = {} Index = {} Value = {} ", i, hash, index, unsafe{(*arr).cms[i as usize][index as usize]} )
+//        // }else {
+//        //     info!(&ctx,"Else cms_array");
+//        // }
+//        //array-of-rows
+//        // if let Some(arr) = CMS_MAP.get_ptr_mut(i) {
+//        //     unsafe {(*arr).row[index as usize] += 1}
+//        //     info!(&ctx, "Row = {} Hash = {} Index = {} Value = {} ", i, hash, index, unsafe{(*arr).row[index as usize]} )
+//        // }else {
+//        //     info!(&ctx,"Else CMS_MAP");
+//        // }
+//        //hash
+//        let key  = Cms{
+//            row:i,
+//            index:index
+//        };
+//        if let Some(val)= unsafe { CMS_MAP.get(&key) }{
+//            CMS_MAP.insert(&key, &(*val+1), 0);
+//            info!(&ctx, "Row = {} Hash = {} Index = {} Value = {}", i, hash, index, *val);
+//            
+//
+//        }else {
+//            CMS_MAP.insert(&key, &1, 0);
+//        }
+//
+//
+//    }
+//
+//    // info!(&ctx, "SRC IP: {:i}, SRC PORT: {}, PROTO: {}, DST IP: {:i}, DST PORT : {}", source_addr, source_port, proto, dest_addr, dest_port);
+//    // info!(&ctx, "provaaa");
+//    // info!(&ctx, "provaa2");
+//    // let fine = unsafe { bpf_ktime_get_ns() };
+//    // error!(&ctx,"Inizio = {} Fine = {} TEMPO PACCHETTO = {} ns",inizio, fine, fine-inizio);
+//
+//    // if let Some(val) = unsafe {STAT.get(&0)} {
+//    //     STAT.insert(&0, &(val+1), 0);
+//
+//    // }else {
+//    //     error!(&ctx,"stat non inserito")
+//    // }
+//    Ok(xdp_action::XDP_PASS)
+//}
 
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
